@@ -2,8 +2,8 @@
 
 ### Configuration
 
-Lancer dans le terminal
+Si vous lancer le projet pour la première fois
 
 ```
-make
+cd <chemin du projet> && make
 ```
