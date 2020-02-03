@@ -22,9 +22,14 @@ import org.apache.hadoop.hbase.client.ConnectionFactory;
 import org.apache.hadoop.hbase.client.Get;
 import org.apache.hadoop.hbase.client.Put;
 import org.apache.hadoop.hbase.client.Result;
+import org.apache.hadoop.hbase.client.ResultScanner;
+import org.apache.hadoop.hbase.client.Scan;
 import org.apache.hadoop.hbase.client.Table;
+import org.apache.hadoop.hbase.filter.CompareFilter.CompareOp;
+import org.apache.hadoop.hbase.filter.FilterList;
+import org.apache.hadoop.hbase.filter.SingleColumnValueFilter;
+import org.apache.hadoop.hbase.filter.SubstringComparator;
 import org.apache.hadoop.hbase.util.Bytes;
-import org.apache.hadoop.thriftfs.api.Datanode.Processor.readBlock;
 
 public class Tp1 {
 
@@ -253,13 +258,12 @@ public class Tp1 {
 	}
 
 	/**
-	 * Requête HBASE
+	 * Afficher le genre de l'arbre correspondant à la clé
+	 * 
+	 * @param cle
 	 */
-	public void operation() {
+	public void displayGenre(String cle) {
 		try {
-			String cle = "666";
-
-			// Le genre de l'arbre 666
 			Get g = new Get(Bytes.toBytes(cle));
 			Result r = hTable.get(g);
 
@@ -269,18 +273,20 @@ public class Tp1 {
 			System.out
 					.println("Le genre de l'arbre " + cle + " est : " + genre);
 
+			System.out.println();
 		} catch (IOException ex) {
 			Logger.getLogger(Tp1.class.getName()).log(Level.SEVERE, null, ex);
 		}
+	}
 
-		System.out.println();
-
+	/**
+	 * Afficher les valaeurs de la famille "infos" de l'arbre correspondant à la
+	 * clé
+	 * 
+	 * @param cle
+	 */
+	public void displayInfos(String cle) {
 		try {
-			// Afficher les valeurs de la famille « infos » de l’arbre
-			// arbre-66300.
-
-			String cle = "66300";
-
 			Get g = new Get(Bytes.toBytes(cle));
 			Result r = hTable.get(g.addFamily(Bytes.toBytes("infos")));
 
@@ -293,14 +299,244 @@ public class Tp1 {
 			String circonference = Bytes.toString(r.getValue(
 					Bytes.toBytes("infos"), Bytes.toBytes("circonference")));
 
-			System.out.println("Infos de l'arbre " + cle + " :");
-			System.out.println("\tdate plantation:  " + datePlantation);
-			System.out.println("\thauteur:  " + hauteur);
-			System.out.println("\tcirconference:  " + circonference);
+			StringBuilder res = new StringBuilder();
+
+			res.append("Infos de l'arbre ").append(cle).append(" : ")
+					.append("\tdate plantation:  ").append(datePlantation)
+					.append('\n').append("\thauteur:  ").append(hauteur)
+					.append('\n').append("\tcirconference:  ")
+					.append(circonference).append('\n');
+
+			System.out.println(res);
 
 		} catch (IOException ex) {
 			Logger.getLogger(Tp1.class.getName()).log(Level.SEVERE, null, ex);
 		}
+
+	}
+
+	/**
+	 * Afficher l’année de plantation des arbres dont la hauteur = hauteur
+	 * 
+	 * @param hauteur
+	 */
+	public void displayDateWhereHauteurEqual(String hauteur) {
+		try {
+			Scan scan = new Scan();
+
+			SingleColumnValueFilter hauteurFilter = new SingleColumnValueFilter(
+					Bytes.toBytes("infos"), Bytes.toBytes("hauteur"),
+					CompareOp.EQUAL, Bytes.toBytes(hauteur));
+			
+			scan.setFilter(hauteurFilter);
+			scan.addColumn(Bytes.toBytes("infos"),
+					Bytes.toBytes("date_plantation"));
+
+			ResultScanner scanner = hTable.getScanner(scan);
+
+			System.out
+					.println("L’année de plantation des arbres dont la hauteur = "
+							+ hauteur);
+
+			for (Result result = scanner.next(); result != null; result = scanner
+					.next()) {
+
+				String datePlantation = Bytes.toString(result.getValue(
+						Bytes.toBytes("infos"),
+						Bytes.toBytes("date_plantation")));
+
+				System.out.println(datePlantation);
+
+			}
+
+			scanner.close();
+
+			System.out.println();
+
+		} catch (IOException ex) {
+			Logger.getLogger(Tp1.class.getName()).log(Level.SEVERE, null, ex);
+		}
+	}
+
+	/**
+	 * Afficher les infos des arbres d'un arrondissement
+	 * 
+	 * @param arrondissement
+	 */
+	public void displayArrondissementInfos(String arrondissement) {
+		try {
+			Scan scan = new Scan();
+
+			SingleColumnValueFilter arndFilter = new SingleColumnValueFilter(
+					Bytes.toBytes("adresse"), Bytes.toBytes("arrondissement"),
+					CompareOp.EQUAL, new SubstringComparator(arrondissement));
+
+			scan.setFilter(arndFilter);
+
+			scan.addFamily(Bytes.toBytes("infos"));
+			scan.addColumn(Bytes.toBytes("adresse"),
+					Bytes.toBytes("arrondissement"));
+
+			ResultScanner scanner = hTable.getScanner(scan);
+
+			System.out.println("Afficher les infos des arbres à "
+					+ arrondissement);
+
+			for (Result result = scanner.next(); result != null; result = scanner
+					.next()) {
+
+				String arnd = Bytes.toString(result.getValue(
+						Bytes.toBytes("adresse"),
+						Bytes.toBytes("arrondissement")));
+
+				String datePlantation = Bytes.toString(result.getValue(
+						Bytes.toBytes("infos"),
+						Bytes.toBytes("date_plantation")));
+
+				String hauteur = Bytes.toString(result.getValue(
+						Bytes.toBytes("infos"), Bytes.toBytes("hauteur")));
+
+				String circonference = Bytes
+						.toString(result.getValue(Bytes.toBytes("infos"),
+								Bytes.toBytes("circonference")));
+
+				StringBuilder res = new StringBuilder();
+
+				res.append("Infos de l'arbre ").append(arnd).append("\n")
+						.append("\tdate plantation: ").append(datePlantation)
+						.append('\n').append("\thauteur: ").append(hauteur)
+						.append('\n').append("\tcirconference:  ")
+						.append(circonference).append('\n');
+
+				System.out.println(res);
+
+			}
+
+			scanner.close();
+
+			System.out.println();
+
+		} catch (IOException ex) {
+			Logger.getLogger(Tp1.class.getName()).log(Level.SEVERE, null, ex);
+		}
+	}
+
+	/**
+	 * Afficher la hauteur des arbres d'un genre
+	 * 
+	 * @param genre
+	 */
+	public void displayHauteurByGenre(String genre) {
+		try {
+			Scan scan = new Scan();
+
+			SingleColumnValueFilter hauteurFilter = new SingleColumnValueFilter(
+					Bytes.toBytes("genre"), Bytes.toBytes("genre"),
+					CompareOp.EQUAL, Bytes.toBytes(genre));
+
+			scan.setFilter(hauteurFilter);
+			scan.addColumn(Bytes.toBytes("infos"), Bytes.toBytes("hauteur"));
+			scan.addColumn(Bytes.toBytes("genre"), Bytes.toBytes("genre"));
+
+			ResultScanner scanner = hTable.getScanner(scan);
+
+			System.out.println("la hauteur des arbres dont le « genre » est "
+					+ genre);
+
+			for (Result result = scanner.next(); result != null; result = scanner
+					.next()) {
+
+				String genreResult = Bytes.toString(result.getValue(
+						Bytes.toBytes("genre"), Bytes.toBytes("genre")));
+				String hauteur = Bytes.toString(result.getValue(
+						Bytes.toBytes("infos"), Bytes.toBytes("hauteur")));
+
+				System.out.println(hauteur + "m (" + genreResult + ")");
+
+			}
+
+			scanner.close();
+
+			System.out.println();
+
+		} catch (IOException ex) {
+			Logger.getLogger(Tp1.class.getName()).log(Level.SEVERE, null, ex);
+		}
+	}
+
+	/**
+	 * Afficher la hauteur des arbres avant l'année définit
+	 * 
+	 * @param annee
+	 */
+	public void displayHauteurPlantedBefore(String annee) {
+		try {
+			Scan scan = new Scan();
+			
+			SingleColumnValueFilter yearFilter = new SingleColumnValueFilter(
+					Bytes.toBytes("infos"), Bytes.toBytes("date_plantation"),
+					CompareOp.LESS, Bytes.toBytes(annee));
+			
+			//yearFilter.setFilterIfMissing(false);
+			scan.setFilter(yearFilter);
+		
+			scan.addColumn(Bytes.toBytes("infos"), Bytes.toBytes("hauteur"));
+			scan.addColumn(Bytes.toBytes("infos"), Bytes.toBytes("date_plantation"));
+
+			ResultScanner scanner = hTable.getScanner(scan);
+
+			System.out.println("la hauteur des arbres dont le « genre » est "
+					+ annee);
+
+			for (Result result = scanner.next(); result != null; result = scanner
+					.next()) {
+
+				String datePlantation = Bytes.toString(result.getValue(
+						Bytes.toBytes("infos"), Bytes.toBytes("date_plantation")));
+				String hauteur = Bytes.toString(result.getValue(
+						Bytes.toBytes("infos"), Bytes.toBytes("hauteur")));
+
+				System.out.println(hauteur + "m (" + datePlantation + ")");
+
+			}
+
+			scanner.close();
+
+			System.out.println();
+
+		} catch (IOException ex) {
+			Logger.getLogger(Tp1.class.getName()).log(Level.SEVERE, null, ex);
+		}
+	}
+
+	/**
+	 * Requêtes HBASE
+	 */
+	public void operation() {
+
+		System.out.println("*********************");
+		displayGenre("666");
+		System.out.println("*********************\n\n");
+
+		System.out.println("*********************");
+		displayInfos("66300");
+		System.out.println("*********************\n\n");
+
+		System.out.println("*********************");
+		displayDateWhereHauteurEqual("30.0");
+		System.out.println("*********************\n\n");
+
+		System.out.println("*********************");
+		displayHauteurByGenre("Quercus");
+		System.out.println("*********************\n\n");
+
+		System.out.println("*********************");
+		displayArrondissementInfos("16e");
+		System.out.println("*********************\n\n");
+
+		System.out.println("*********************");
+		displayHauteurPlantedBefore("1900");
+		System.out.println("*********************\n\n");
 	}
 
 	public static void main(String[] args) {
